@@ -1,0 +1,10 @@
+{
+  "name": "Histoires & Anecdotes de Valdivienne",
+  "short_name": "Valdivienne",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f3ece2",
+  "theme_color": "#2d2119",
+  "lang": "fr"
+}
