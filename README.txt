@@ -14,3 +14,10 @@ IMPORTANT :
 INSTALLATION :
 Remplacer index.html, style.css, app.js, sw.js, config.js et manifest.json dans le dépôt GitHub Pages.
 Puis attendre le nouveau déploiement et actualiser avec Ctrl+F5 sur ordinateur ou vider le cache sur tablette.
+
+
+V6.1.1 — DIAGNOSTIC
+===================
+Ajout du bouton « Tester Blogger » et d'un diagnostic visible.
+La synchronisation est paginée (jusqu'à 20 lots de 50 articles).
+En cas d'échec, l'écran indique si le navigateur reçoit ou non le flux Blogger.
