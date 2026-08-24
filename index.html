@@ -21,7 +21,7 @@
 <section id="home" class="page active">
 <div class="panel"><span class="badge">SOURCE : TON BLOG BLOGGER</span><h2>Une véritable bibliothèque patrimoniale</h2>
 <p>La V6.1 importe automatiquement les articles publics du blog, extrait le maximum de photographies présentes dans leur HTML et construit une base locale. Une fois les données mises en cache, la consultation peut continuer hors connexion.</p>
-<button onclick="syncNow()">⬇ Importer / mettre à jour le blog</button><span id="syncMini" class="mini"></span></div>
+<button onclick="syncNow()">⬇ Importer / mettre à jour le blog</button><button class="secondary" onclick="testBlogger()">🧪 Tester Blogger</button><span id="syncMini" class="mini"></span></div>
 <div class="stats"><div><b id="n">0</b><small>articles</small></div><div><b id="ni">0</b><small>photos</small></div><div><b id="nc">0</b><small>collections</small></div><div><b id="nf">0</b><small>favoris</small></div></div>
 <div id="homeCards" class="grid"></div>
 </section>
@@ -34,7 +34,7 @@
 <section id="favorites" class="page"><div class="heading"><div class="eyebrow">MON PARCOURS</div><h2>Favoris</h2></div><div id="favGrid" class="grid"></div></section>
 <section id="sync" class="page"><div class="panel"><div class="eyebrow">SYNCHRONISATION</div><h2>Mettre le musée à jour</h2>
 <p>La V6.1 utilise le flux public Blogger. Aucun compte Google et aucune clé API ne sont nécessaires pour cette synchronisation publique.</p>
-<button onclick="syncNow()">🔄 Synchroniser maintenant</button><p id="syncStatus" class="notice">État : prêt.</p>
+<button onclick="syncNow()">🔄 Synchroniser maintenant</button><p id="syncStatus" class="notice">État : prêt.</p><pre id="diag" class="notice" style="white-space:pre-wrap;overflow:auto;font:12px monospace"></pre>
 <p><strong>Important :</strong> la première synchronisation doit être faite avec Internet. Les articles et les adresses d'images sont ensuite enregistrés localement ; le navigateur peut également mettre en cache les ressources consultées.</p>
 </div></section>
 </main>
