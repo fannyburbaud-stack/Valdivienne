@@ -1,92 +1,73 @@
-const state={articles:[],places:[],names:[],markers:[],online:true,map:null,layer:null,user:null};
-const $=s=>document.querySelector(s);
-const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
-const DATA="data/data.json", KML="data/map.kml";
+const BLOG="https://pierreplumecoeur.blogspot.com/";
+const DBKEY="valdivienne-v11-db";
+let DB=loadDB();
+const $=id=>document.getElementById(id);
 
-async function getJSON(url){const r=await fetch(url,{cache:"no-store"});if(!r.ok)throw Error(url+" "+r.status);return r.json()}
-async function boot(){
-  try{const d=await getJSON(DATA);state.articles=d.articles||[];state.places=d.places||[];state.names=d.names||[];state.markers=d.markers||[];}catch(e){console.warn(e)}
-  setupNav(); setupMap(); renderAll(); setupPWA();
-}
-function setupNav(){document.querySelectorAll(".bottomnav button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".bottomnav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));$("#"+b.dataset.page).classList.add("active");if(b.dataset.page==="mapPage")setTimeout(()=>state.map?.invalidateSize(),100)})}
+function loadDB(){try{return JSON.parse(localStorage.getItem(DBKEY))||{articles:[],places:[],names:[],markers:[]}}catch(e){return{articles:[],places:[],names:[],markers:[]}}}
+function save(){localStorage.setItem(DBKEY,JSON.stringify(DB));}
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function strip(s){return String(s||"").replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim()}
+function openModal(html){$("modalContent").innerHTML=html;$("modal").classList.remove("hidden")}
+function closeModal(){$("modal").classList.add("hidden")}
+window.closeModal=closeModal;
 
-async function importKML(file){
-  try{
-    let text;
-    if(file.name.toLowerCase().endsWith(".kmz")){
-      notice("Les KMZ nécessitent une conversion en KML. Exporte la carte en KML depuis My Maps ou décompresse le KMZ.");
-      return;
-    }
-    text=await file.text();
-    const xml=new DOMParser().parseFromString(text,"application/xml");
-    const bad=xml.querySelector("parsererror"); if(bad)throw Error("KML illisible");
-    const placemarks=[...xml.getElementsByTagNameNS("*","Placemark")];
-    const parsed=[];
-    placemarks.forEach((pm,i)=>{
-      const name=pm.getElementsByTagNameNS("*","name")[0]?.textContent?.trim()||"Lieu "+(i+1);
-      const desc=pm.getElementsByTagNameNS("*","description")[0]?.textContent||"";
-      const point=pm.getElementsByTagNameNS("*","Point")[0];
-      const coords=point?.getElementsByTagNameNS("*","coordinates")[0]?.textContent?.trim();
-      if(coords){
-        const [lng,lat]=coords.split(",").map(Number);
-        if(Number.isFinite(lat)&&Number.isFinite(lng))parsed.push({name,lat,lng,description:stripHTML(desc)});
-      }
-      const ls=pm.getElementsByTagNameNS("*","LineString");
-      [...ls].forEach(line=>{
-        const c=line.getElementsByTagNameNS("*","coordinates")[0]?.textContent?.trim();
-        if(c){const first=c.split(/\s+/)[0].split(",").map(Number);if(first.length>=2&&Number.isFinite(first[0])&&Number.isFinite(first[1]))parsed.push({name,lat:first[1],lng:first[0],description:stripHTML(desc),category:"Itinéraire"});}
-      });
-    });
-    if(!parsed.length)throw Error("Aucun repère ponctuel trouvé dans ce KML.");
-    state.markers=parsed;localStorage.setItem("offlineMarkers",JSON.stringify(parsed));drawMarkers();
-    notice(parsed.length+" repères importés depuis My Maps. Ils sont maintenant disponibles hors connexion.");
-  }catch(e){notice("Erreur KML : "+e.message)}
-}
-function stripHTML(s){const d=document.createElement("div");d.innerHTML=s||"";return d.textContent||d.innerText||""}
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));$(b.dataset.view).classList.add("active");render()});
 
-function setupMap(){
-  state.map=L.map("map",{zoomControl:true,preferCanvas:true}).setView([46.494151,0.605944],11);
-  state.layer=L.layerGroup().addTo(state.map);
-  const saved=localStorage.getItem("offlineMarkers");if(saved&&!state.markers.length)try{state.markers=JSON.parse(saved)}catch(e){}
-  drawMarkers();
-  $("#locateBtn").onclick=locate;
-  $("#mapSearch").oninput=e=>searchMap(e.target.value);
-  $("#offlineBtn").onclick=()=>{state.online=false;notice("Mode hors connexion : les données locales restent disponibles. Le fond détaillé peut être absent si les tuiles n'ont pas été mises en cache.");};
-  $("#kmlInput").onchange=e=>{if(e.target.files[0])importKML(e.target.files[0])};
-  $("#onlineMapBtn").onclick=()=>{state.online=true;notice("Mode en ligne : chargement du fond cartographique.");addOnlineTiles()};
-  addOnlineTiles();
+function render(){
+ renderPlaces();renderNames();renderArticles();renderMap();renderSearch();
 }
-function addOnlineTiles(){
-  if(!state.map)return;
-  if(state.tiles)state.map.removeLayer(state.tiles);
-  state.tiles=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(state.map);
+function card(title,meta,body,action){
+ return `<article class="card"><h3>${esc(title)}</h3>${meta?`<div class="meta">${esc(meta)}</div>`:""}<div>${body}</div>${action||""}</article>`;
 }
-function drawMarkers(){
-  state.layer.clearLayers();
-  state.markers.forEach((m,i)=>{
-    if(typeof m.lat!=="number"||typeof m.lng!=="number")return;
-    const marker=L.marker([m.lat,m.lng]).addTo(state.layer);
-    marker.bindTooltip(esc(m.name||"Lieu"),{direction:"top"});
-    marker.on("click",()=>openMarker(m));
-  });
-  localStorage.setItem("offlineMarkers",JSON.stringify(state.markers));
+function renderPlaces(){
+ const q=($("placeFilter")?.value||"").toLowerCase();
+ const a=DB.places.filter(x=>(x.name+" "+(x.description||"")).toLowerCase().includes(q));
+ $("placesList").innerHTML=a.length?a.map(x=>card(x.name,"Lieu",esc(x.description||""),`<button onclick='showPlace(${JSON.stringify(x.name)})'>Voir</button>`)).join(""):`<div class="empty">Aucun lieu enregistré.</div>`;
 }
-function openMarker(m){
-  const related=state.articles.filter(a=>[a.title,a.url,...(a.labels||[]),a.place].join(" ").toLowerCase().includes(String(m.name||"").toLowerCase())).slice(0,15);
-  $("#sheetContent").innerHTML=`<h2>${esc(m.name||"Lieu")}</h2><p>${esc(m.description||"")}</p>${m.category?`<span class="tag">${esc(m.category)}</span>`:""}${related.length?`<h3>Articles associés</h3>${related.map(articleMini).join("")}`:"<p>Aucun article associé automatiquement.</p>"}`;
-  $("#sheet").classList.add("open");
+function renderNames(){
+ const q=($("nameFilter")?.value||"").toLowerCase();
+ const a=DB.names.filter(x=>(x.name+" "+(x.details||"")).toLowerCase().includes(q));
+ $("namesList").innerHTML=a.length?a.map(x=>card(x.name,"Nom",esc(x.details||""),x.articles?.length?`<button onclick='showName(${JSON.stringify(x.name)})'>Articles</button>`:"")).join(""):`<div class="empty">Aucun nom enregistré.</div>`;
 }
-function locate(){if(!navigator.geolocation){notice("La géolocalisation n'est pas disponible.");return}navigator.geolocation.getCurrentPosition(p=>{const c=[p.coords.latitude,p.coords.longitude];state.map.setView(c,15);L.circleMarker(c,{radius:9}).addTo(state.layer).bindPopup("Vous êtes ici").openPopup();notice("Position trouvée.");},e=>notice("Impossible d'obtenir votre position : "+e.message),{enableHighAccuracy:true,timeout:10000})}
-function searchMap(q){q=q.toLowerCase().trim();state.markers.forEach((m,i)=>{if(!q)return; if(String(m.name).toLowerCase().includes(q)){state.map.setView([m.lat,m.lng],15);openMarker(m)}})}
-function renderAll(){renderPlaces();renderNames();renderArticles();$("#closeSheet").onclick=()=>$("#sheet").classList.remove("open");$("#sheet").onclick=e=>{if(e.target.id==="sheet")$("#sheet").classList.remove("open")}}
-function articleMini(a){return `<div class="item" onclick="openArticle('${esc(a.id)}')"><div><h3>${esc(a.title)}</h3><p>${esc(a.excerpt||"")}</p></div></div>`}
-function articleCard(a){return `<article class="item"><img class="thumb" src="${esc(a.image||"")}" onerror="this.style.display='none'"><div><h3>${esc(a.title)}</h3><p>${esc(a.excerpt||"")}</p>${(a.labels||[]).slice(0,3).map(x=>`<span class="tag">${esc(x)}</span>`).join(" ")}<div><button onclick="openArticle('${esc(a.id)}')">Lire</button></div></div></article>`}
-function renderPlaces(){let el=$("#places");el.innerHTML=state.places.length?state.places.map(p=>`<article class="item"><div><h3>${esc(p.name)}</h3><p>${p.count||0} article(s)</p><button onclick="focusPlace('${esc(p.name)}')">Voir sur la carte</button></div></article>`).join(""):"<div class='empty'>L'index sera rempli lors de la prochaine synchronisation.</div>"}
-function renderNames(){let el=$("#names");el.innerHTML=state.names.length?state.names.map(n=>`<article class="item"><div><h3>${esc(n.name)}</h3><p>${n.count||0} occurrence(s)</p></div></article>`).join(""):"<div class='empty'>L'index des noms sera rempli lors de la synchronisation.</div>"}
-function renderArticles(){let labels=[...new Set(state.articles.flatMap(a=>a.labels||[]))].sort();$("#labelFilter").innerHTML='<option value="">Toutes les catégories</option>'+labels.map(x=>`<option>${esc(x)}</option>`).join("");const go=()=>{let q=$("#articleSearch").value.toLowerCase(),l=$("#labelFilter").value;let a=state.articles.filter(x=>(!q||[x.title,x.excerpt,x.content,...(x.labels||[])].join(" ").toLowerCase().includes(q))&&(!l||(x.labels||[]).includes(l)));$("#articles").innerHTML=a.map(articleCard).join("")||"<div class='empty'>Aucun article.</div>"};$("#articleSearch").oninput=go;$("#labelFilter").onchange=go;go()}
-function focusPlace(n){const m=state.markers.find(x=>String(x.name).toLowerCase()===n.toLowerCase())||state.markers.find(x=>String(x.name).toLowerCase().includes(n.toLowerCase()));if(m){document.querySelector('[data-page="mapPage"]').click();state.map.setView([m.lat,m.lng],15);openMarker(m)}}
-function openArticle(id){const a=state.articles.find(x=>x.id===id);if(!a)return;$("#sheetContent").innerHTML=`<h2>${esc(a.title)}</h2><p>${esc(a.published||"")} ${a.place?`• ${esc(a.place)}`:""}</p><div class="article-body">${a.content||`<p>${esc(a.excerpt||"")}</p>`}</div><p><a href="${esc(a.url)}" target="_blank">Ouvrir l'article original</a></p>`;$("#sheet").classList.add("open")}
-function notice(t){const n=$("#mapNotice");n.textContent=t;n.style.display="block";setTimeout(()=>n.style.display="none",4500)}
-async function setupPWA(){let b=$("#installBtn");let deferred;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferred=e;b.hidden=false;b.onclick=async()=>{b.hidden=true;await deferred.prompt();deferred=null}})}
-if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js",{scope:"./"}).catch(console.warn);
-boot();
+function renderArticles(){
+ const q=($("articleFilter")?.value||"").toLowerCase();
+ const a=DB.articles.filter(x=>(x.title+" "+strip(x.content)+" "+(x.labels||[]).join(" ")).toLowerCase().includes(q));
+ $("articlesList").innerHTML=a.length?a.map((x,i)=>card(x.title,x.published||"",esc(x.excerpt||strip(x.content).slice(0,220)),`<button onclick="showArticle(${i})">Lire l'article</button>`)).join(""):`<div class="empty">Aucun article importé. Utilise la fonction de mise à jour lorsqu'elle sera configurée.</div>`;
+}
+function renderMap(){
+ const a=DB.markers;
+ $("mapList").innerHTML=a.length?a.map((x,i)=>card(x.name,`${x.lat?.toFixed?.(5)||x.lat}, ${x.lon?.toFixed?.(5)||x.lon}`,esc(x.description||""),`<button onclick="focusMarker(${i})">Afficher</button>`)).join(""):`<div class="empty">Aucun repère cartographique. Importe ta carte Google My Maps au format KML.</div>`;
+}
+function renderSearch(){
+ const q=($("globalFilter")?.value||"").toLowerCase().trim();
+ if(!q){$("searchResults").innerHTML='<div class="empty">Saisis un terme pour rechercher dans les lieux, noms et articles.</div>';return}
+ const out=[];
+ DB.places.filter(x=>(x.name+" "+x.description).toLowerCase().includes(q)).forEach(x=>out.push(card("📍 "+x.name,"Lieu",esc(x.description||""))));
+ DB.names.filter(x=>(x.name+" "+x.details).toLowerCase().includes(q)).forEach(x=>out.push(card("🧬 "+x.name,"Nom",esc(x.details||""))));
+ DB.articles.filter(x=>(x.title+" "+strip(x.content)).toLowerCase().includes(q)).slice(0,30).forEach((x,i)=>out.push(card("📚 "+x.title,x.published||"",esc(x.excerpt||strip(x.content).slice(0,180)),`<button onclick="showArticle(${DB.articles.indexOf(x)})">Lire</button>`)));
+ $("searchResults").innerHTML=out.join("")||'<div class="empty">Aucun résultat.</div>';
+}
+function showArticle(i){const x=DB.articles[i];openModal(`<h2>${esc(x.title)}</h2><div class="meta">${esc(x.published||"")}</div><div class="articleBody">${x.content||esc(x.excerpt||"")}</div>${x.url?`<p><a href="${esc(x.url)}" target="_blank">Voir l'article original sur Blogger</a></p>`:""}`)}
+function showPlace(n){const x=DB.places.find(p=>p.name===n)||{};openModal(`<h2>📍 ${esc(n)}</h2><p>${esc(x.description||"")}</p>`)}
+function showName(n){const x=DB.names.find(p=>p.name===n)||{};openModal(`<h2>🧬 ${esc(n)}</h2><p>${esc(x.details||"")}</p>`)}
+function focusMarker(i){const x=DB.markers[i];if(x)openModal(`<h2>📍 ${esc(x.name)}</h2><p>${esc(x.description||"")}</p><p><b>Latitude :</b> ${x.lat}<br><b>Longitude :</b> ${x.lon}</p><button onclick="navigate(${x.lat},${x.lon})">Itinéraire</button>`)}
+
+function navigate(lat,lon){location.href=`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`}
+$("locate").onclick=()=>navigator.geolocation?.getCurrentPosition(p=>openModal(`<h2>📍 Votre position</h2><p>Latitude : ${p.coords.latitude.toFixed(6)}<br>Longitude : ${p.coords.longitude.toFixed(6)}</p>`),e=>openModal(`<h2>Géolocalisation</h2><p>Impossible d'obtenir votre position : ${esc(e.message)}</p>`));
+$("importMap").onclick=()=>$("kmlInput").click();
+$("kmlInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;const text=await f.text();importKML(text);};
+function importKML(text){
+ const xml=new DOMParser().parseFromString(text,"text/xml");
+ const placemarks=[...xml.querySelectorAll("Placemark")];const markers=[];
+ placemarks.forEach(p=>{const name=p.querySelector("name")?.textContent?.trim()||"Lieu sans nom";const desc=p.querySelector("description")?.textContent||"";const coord=p.querySelector("Point coordinates")?.textContent?.trim();if(coord){const [lon,lat]=coord.split(",").map(Number);if(Number.isFinite(lat)&&Number.isFinite(lon))markers.push({name,description:strip(desc),lat,lon})}});
+ DB.markers=markers;save();render();alert(`${markers.length} repère(s) importé(s).`);
+}
+$("resetMap").onclick=()=>{if(confirm("Supprimer les repères cartographiques importés ?")){DB.markers=[];save();renderMap()}};
+["placeFilter","nameFilter","articleFilter","globalFilter"].forEach(id=>$(id)?.addEventListener("input",render));
+
+window.addEventListener("load",()=>{render();if(navigator.onLine)$("status").textContent="🟢 En ligne • données locales disponibles";else $("status").textContent="🔴 Hors connexion • mode local";});
+window.addEventListener("online",()=>$("status").textContent="🟢 En ligne • données locales disponibles");
+window.addEventListener("offline",()=>$("status").textContent="🔴 Hors connexion • mode local");
+
+// Installation PWA: service worker actif seulement après premier chargement.
+if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
