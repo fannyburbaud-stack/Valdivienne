@@ -1,0 +1,16 @@
+{
+  "version": "1.0",
+  "updated": "2026-08-29",
+  "articles": [],
+  "places": [],
+  "names": [],
+  "markers": [
+    {
+      "name": "Valdivienne",
+      "lat": 46.4941513378445,
+      "lng": 0.6059439265576438,
+      "category": "Territoire",
+      "description": "Point de départ de la carte patrimoniale."
+    }
+  ]
+}

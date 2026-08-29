@@ -1,0 +1,19 @@
+{
+  "name": "Valdivienne — Patrimoine & mémoire",
+  "short_name": "Valdivienne",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#3b2b20",
+  "background_color": "#f5efe7",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

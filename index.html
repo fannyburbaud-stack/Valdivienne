@@ -1,44 +1,65 @@
 <!doctype html>
 <html lang="fr">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#2d2119">
-<link rel="manifest" href="manifest.json"><link rel="stylesheet" href="style.css">
-<title>Histoires & Anecdotes de Valdivienne — V6.1</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#3b2b20">
+<meta name="description" content="Valdivienne — carte patrimoniale et archives locales">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg">
+<link rel="stylesheet" href="app.css">
+<title>Valdivienne — Patrimoine & Mémoire</title>
 </head>
 <body>
-<header class="hero"><div class="hero-inner">
-<div class="brand">LA PIERRE • LA PLUME • LE CŒUR</div>
-<div class="eyebrow">MUSÉE NUMÉRIQUE • V6.1</div>
-<h1>Histoires & Anecdotes<br>de Valdivienne</h1>
-<p>Le patrimoine de Valdivienne, ses villages, ses monuments, ses familles et ses mémoires.</p>
-<div class="actions"><button onclick="show('collections')">Explorer</button><button class="ghost" onclick="show('search')">🔎 Rechercher</button></div>
-</div></header>
-<nav>
-<button onclick="show('home')">⌂ Accueil</button><button onclick="show('collections')">Collections</button><button onclick="show('photos')">🖼️ Photos</button><button onclick="show('places')">🗺️ Lieux</button><button onclick="show('timeline')">⏳ Frise</button><button onclick="show('genealogy')">🧬 Généalogie</button><button onclick="show('search')">🔎 Recherche</button><button onclick="show('favorites')">★ Favoris</button><button onclick="show('sync')">↻ Synchroniser</button>
-</nav>
+<header class="topbar">
+  <div class="brand"><span class="mark">V</span><div><strong>VALDIVIENNE</strong><small>Patrimoine & mémoire</small></div></div>
+  <button id="installBtn" class="ghost" hidden>Installer</button>
+</header>
+
 <main>
-<section id="home" class="page active">
-<div class="panel"><span class="badge">SOURCE : TON BLOG BLOGGER</span><h2>Une véritable bibliothèque patrimoniale</h2>
-<p>La V6.1 importe automatiquement les articles publics du blog, extrait le maximum de photographies présentes dans leur HTML et construit une base locale. Une fois les données mises en cache, la consultation peut continuer hors connexion.</p>
-<button onclick="syncNow()">⬇ Importer / mettre à jour le blog</button><button class="secondary" onclick="testBlogger()">🧪 Tester Blogger</button><span id="syncMini" class="mini"></span></div>
-<div class="stats"><div><b id="n">0</b><small>articles</small></div><div><b id="ni">0</b><small>photos</small></div><div><b id="nc">0</b><small>collections</small></div><div><b id="nf">0</b><small>favoris</small></div></div>
-<div id="homeCards" class="grid"></div>
+<section id="mapPage" class="page active">
+  <div id="map"></div>
+  <div class="map-overlay">
+    <div class="searchbox"><input id="mapSearch" placeholder="Rechercher un lieu, monument, article…"><button id="locateBtn" title="Me localiser">⌖</button></div>
+    <div class="map-actions"><button id="onlineMapBtn">Fond cartographique</button><button id="offlineBtn">Mode hors connexion</button><label class="map-file">📥 Importer ma carte My Maps<input id="kmlInput" type="file" accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz"></label></div>
+  </div>
+  <div id="mapNotice" class="notice"></div>
 </section>
-<section id="collections" class="page"><div class="heading"><div class="eyebrow">MUSÉE</div><h2>Collections</h2></div><div id="collectionsGrid" class="grid"></div></section>
-<section id="photos" class="page"><div class="heading"><div class="eyebrow">ICONOGRAPHIE</div><h2>Galerie photographique</h2><p>Les images sont extraites des articles importés. Cliquez sur une image pour ouvrir la fiche.</p></div><div id="photoGrid" class="photos"></div></section>
-<section id="places" class="page"><div class="heading"><div class="eyebrow">TERRITOIRE</div><h2>Lieux</h2></div><div id="placeGrid" class="grid"></div></section>
-<section id="timeline" class="page"><div class="heading"><div class="eyebrow">CHRONOLOGIE</div><h2>Frise historique</h2></div><div id="timelineGrid" class="timeline"></div></section>
-<section id="genealogy" class="page"><div class="heading"><div class="eyebrow">GÉNÉALOGIE</div><h2>Index des familles et personnages</h2><input id="gq" class="input" placeholder="Nom, prénom, famille, personnage…"><div id="geneGrid" class="grid"></div></section>
-<section id="search" class="page"><div class="heading"><div class="eyebrow">ARCHIVES</div><h2>Recherche dans le musée</h2><input id="q" class="input" placeholder="Rechercher un mot, un lieu, un monument, une date…"><div class="filters"><select id="fc"></select><select id="fy"></select></div><div id="results" class="grid"></div></section>
-<section id="favorites" class="page"><div class="heading"><div class="eyebrow">MON PARCOURS</div><h2>Favoris</h2></div><div id="favGrid" class="grid"></div></section>
-<section id="sync" class="page"><div class="panel"><div class="eyebrow">SYNCHRONISATION</div><h2>Mettre le musée à jour</h2>
-<p>La V6.1 utilise le flux public Blogger. Aucun compte Google et aucune clé API ne sont nécessaires pour cette synchronisation publique.</p>
-<button onclick="syncNow()">🔄 Synchroniser maintenant</button><p id="syncStatus" class="notice">État : prêt.</p><pre id="diag" class="notice" style="white-space:pre-wrap;overflow:auto;font:12px monospace"></pre>
-<p><strong>Important :</strong> la première synchronisation doit être faite avec Internet. Les articles et les adresses d'images sont ensuite enregistrés localement ; le navigateur peut également mettre en cache les ressources consultées.</p>
-</div></section>
+
+<section id="indexPage" class="page">
+  <div class="section-head"><span>EXPLORER</span><h1>Index des lieux</h1><p>Les lieux de Valdivienne et les articles qui leur sont associés.</p></div>
+  <div id="places"></div>
+</section>
+
+<section id="namesPage" class="page">
+  <div class="section-head"><span>GÉNÉALOGIE</span><h1>Index des noms</h1><p>Personnes, familles et personnages cités dans les archives.</p></div>
+  <div id="names"></div>
+</section>
+
+<section id="articlesPage" class="page">
+  <div class="section-head"><span>ARCHIVES</span><h1>Tous les articles</h1><p>Une bibliothèque locale synchronisée avec le blog.</p></div>
+  <div class="toolbar"><input id="articleSearch" placeholder="Rechercher dans les articles…"><select id="labelFilter"><option value="">Toutes les catégories</option></select></div>
+  <div id="articles"></div>
+</section>
+
+<section id="aboutPage" class="page">
+  <div class="section-head"><span>APPLICATION</span><h1>Valdivienne — Patrimoine & mémoire</h1></div>
+  <div class="card"><p>Cette application associe une carte patrimoniale, les index du blog et l'ensemble des articles. La base de données est conservée localement afin de permettre la consultation hors connexion.</p>
+  <h2>Synchronisation</h2><p>La mise à jour est réalisée depuis le dépôt GitHub via une synchronisation automatique du blog. Une mise à jour manuelle peut être déclenchée depuis GitHub Actions.</p>
+  <p><a target="_blank" href="https://pierreplumecoeur.blogspot.com/">Ouvrir le blog</a></p></div>
+</section>
 </main>
-<div id="modal" class="modal"><div class="shade" onclick="closeModal()"></div><article class="modal-card"><button class="close" onclick="closeModal()">×</button><div id="detail"></div></article></div>
-<footer>Histoires & Anecdotes de Valdivienne • V6.1</footer>
-<script src="config.js"></script><script src="app.js"></script>
+
+<nav class="bottomnav">
+<button class="active" data-page="mapPage">🗺️<span>Carte</span></button>
+<button data-page="indexPage">📍<span>Lieux</span></button>
+<button data-page="namesPage">🧬<span>Noms</span></button>
+<button data-page="articlesPage">📚<span>Articles</span></button>
+<button data-page="aboutPage">ⓘ<span>Infos</span></button>
+</nav>
+
+<div id="sheet" class="sheet"><div class="sheet-card"><button id="closeSheet" class="close">×</button><div id="sheetContent"></div></div></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
+<script src="app.js"></script>
 </body></html>

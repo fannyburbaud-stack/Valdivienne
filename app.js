@@ -1,111 +1,92 @@
-const $=id=>document.getElementById(id);
-let DB=JSON.parse(localStorage.getItem("v61db")||"[]");
-let F=JSON.parse(localStorage.getItem("v61fav")||"[]");
-function show(id){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");scrollTo(0,0);if(id==="photos")photos();if(id==="collections")collections();if(id==="places")places();if(id==="timeline")timeline();if(id==="genealogy")gene();if(id==="favorites")favorites();if(id==="search")search()}
-function esc(s=""){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-function strip(s){return String(s||"").replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim()}
-function save(){localStorage.setItem("v61db",JSON.stringify(DB))}
-function imgList(html){let d=document.createElement("div");d.innerHTML=html||"";let a=[...d.querySelectorAll("img")].map(i=>i.getAttribute("data-src")||i.getAttribute("src")||i.getAttribute("data-original")||"");[...d.querySelectorAll("img[srcset],source[srcset]")].forEach(i=>(i.getAttribute("srcset")||"").split(",").forEach(v=>a.push(v.trim().split(/\s+/)[0])));[...d.querySelectorAll("a[href]")].forEach(link=>{let u=link.href||"";if(/\.(jpe?g|png|gif|webp)(\?|$)/i.test(u))a.push(u)});return [...new Set(a.filter(u=>/^https?:\/\//i.test(u)))].slice(0,V6CONFIG.imageMaxPerArticle)}
-function bestImage(a){return a.imageUrls?.[0]||""}
-function fav(id){F=F.includes(id)?F.filter(x=>x!==id):F.concat(id);localStorage.setItem("v61fav",JSON.stringify(F));render()}
-function card(x){let im=bestImage(x);return `<article class="tile"><div class="cover">${im?`<img loading="lazy" src="${esc(im)}" alt="">`:x.icon||"📜"}</div><span class="badge">${esc(x.collection||"Archives Blogger")}</span><h3>${esc(x.title)}</h3><p>${esc(x.description||strip(x.content).slice(0,190))}</p><small>${esc(x.place||"")} ${x.year?"• "+x.year:""}</small><div class="actions"><button onclick="detail('${x.id}')">Ouvrir</button><button class="secondary" onclick="fav('${x.id}')">${F.includes(x.id)?"★":"☆"}</button></div></article>`}
-function detail(id){let x=DB.find(a=>a.id===id);let first=bestImage(x);$("detail").innerHTML=`${first?`<div class="detail-cover"><img src="${esc(first)}"></div>`:""}<span class="badge">${esc(x.collection||"Archives Blogger")}</span><h2>${esc(x.title)}</h2><p>${esc(x.place||"")} ${x.year?"• "+x.year:""}</p><div>${x.content||`<p>${esc(x.description||"")}</p>`}</div><h3>Photographies de l'article (${x.imageUrls?.length||0})</h3><div class="gallery">${(x.imageUrls||[]).map(u=>`<img loading="lazy" src="${esc(u)}" onclick="window.open('${esc(u)}','_blank')">`).join("")||"<p>Aucune image détectée.</p>"}</div><div class="actions"><button onclick="fav('${x.id}')">${F.includes(x.id)?"★ Retirer des favoris":"☆ Ajouter aux favoris"}</button>${x.url?`<button class="secondary" onclick="location.href='${esc(x.url)}'">Article original</button>`:""}</div>`;$("modal").classList.add("open")}
-function closeModal(){$("modal").classList.remove("open")}
-function search(){let q=($("q")?.value||"").toLowerCase(),a=DB.filter(x=>[x.title,x.place,x.period,x.collection,x.description,x.content,...(x.labels||[])].join(" ").toLowerCase().includes(q));$("results").innerHTML=a.map(card).join("")||"<div class='panel'>Aucun résultat.</div>"}
-function gene(){let q=($("gq")?.value||"").toLowerCase();$("geneGrid").innerHTML=DB.filter(x=>[x.title,x.place,x.content,x.description,...(x.labels||[])].join(" ").toLowerCase().includes(q)).map(card).join("")||"<div class='panel'>Aucun résultat.</div>"}
-function photos(){let out=[];DB.forEach(x=>(x.imageUrls||[]).forEach((u,i)=>out.push({u,x,i})));$("photoGrid").innerHTML=out.map(o=>`<div class="photo" onclick="detail('${o.x.id}')"><img loading="lazy" src="${esc(o.u)}"><div>${esc(o.x.title)}</div></div>`).join("")||"<div class='panel'>Synchronisez le blog pour récupérer les images.</div>"}
-function collections(){let c=[...new Set(DB.map(x=>x.collection||"Archives Blogger"))];$("collectionsGrid").innerHTML=c.map(v=>`<article class="tile"><div class="cover">📚</div><h3>${esc(v)}</h3><p>${DB.filter(x=>(x.collection||"Archives Blogger")===v).length} article(s)</p></article>`).join("")}
-function places(){let p=[...new Set(DB.map(x=>x.place).filter(Boolean))];$("placeGrid").innerHTML=p.map(v=>`<article class="tile"><div class="cover">📍</div><h3>${esc(v)}</h3><p>${DB.filter(x=>x.place===v).length} document(s)</p></article>`).join("")||"<div class='panel'>Les lieux seront enrichis à partir des données disponibles dans les articles.</div>"}
-function timeline(){let a=[...DB].filter(x=>x.year).sort((a,b)=>a.year-b.year);$("timelineGrid").innerHTML=a.map(x=>`<article class="event"><div class="year">${x.year}</div><h3>${esc(x.title)}</h3><p>${esc(x.description||"")}</p><button onclick="detail('${x.id}')">Ouvrir</button></article>`).join("")||"<div class='panel'>Aucune date détectée.</div>"}
-function favorites(){$("favGrid").innerHTML=DB.filter(x=>F.includes(x.id)).map(card).join("")||"<div class='panel'>Aucun favori.</div>"}
-function render(){$("n").textContent=DB.length;$("ni").textContent=DB.reduce((n,x)=>n+(x.imageUrls?.length||0),0);$("nc").textContent=new Set(DB.map(x=>x.collection||"Archives Blogger")).size;$("nf").textContent=F.length;$("homeCards").innerHTML=DB.slice(0,8).map(card).join("")||"<div class='panel'><p>Aucune donnée importée.</p><button onclick=\"syncNow()\">Importer le blog</button></div>";search();gene();photos();collections();places();timeline();favorites()}
-function diagnostic(msg){
-  const d=$("diag"); if(d){d.textContent += (d.textContent?"
-":"")+msg;}
+const state={articles:[],places:[],names:[],markers:[],online:true,map:null,layer:null,user:null};
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const DATA="data/data.json", KML="data/map.kml";
+
+async function getJSON(url){const r=await fetch(url,{cache:"no-store"});if(!r.ok)throw Error(url+" "+r.status);return r.json()}
+async function boot(){
+  try{const d=await getJSON(DATA);state.articles=d.articles||[];state.places=d.places||[];state.names=d.names||[];state.markers=d.markers||[];}catch(e){console.warn(e)}
+  setupNav(); setupMap(); renderAll(); setupPWA();
 }
-function clearDiagnostic(){const d=$("diag");if(d)d.textContent="";}
-function jsonp(url,timeoutMs=20000){
-  return new Promise((resolve,reject)=>{
-    const cb="v611cb_"+Date.now()+"_"+Math.random().toString(36).slice(2);
-    const s=document.createElement("script");
-    let done=false;
-    const timer=setTimeout(()=>finish(new Error("Délai d'attente dépassé ("+timeoutMs+" ms).")),timeoutMs);
-    function finish(err,data){
-      if(done)return;done=true;clearTimeout(timer);
-      try{delete window[cb]}catch(e){window[cb]=undefined}
-      s.remove();
-      err?reject(err):resolve(data);
+function setupNav(){document.querySelectorAll(".bottomnav button").forEach(b=>b.onclick=()=>{document.querySelectorAll(".bottomnav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));$("#"+b.dataset.page).classList.add("active");if(b.dataset.page==="mapPage")setTimeout(()=>state.map?.invalidateSize(),100)})}
+
+async function importKML(file){
+  try{
+    let text;
+    if(file.name.toLowerCase().endsWith(".kmz")){
+      notice("Les KMZ nécessitent une conversion en KML. Exporte la carte en KML depuis My Maps ou décompresse le KMZ.");
+      return;
     }
-    window[cb]=data=>finish(null,data);
-    s.onerror=()=>finish(new Error("Le navigateur n'a pas pu charger le flux Blogger."));
-    s.src=url+(url.includes("?")?"&":"?")+"alt=json-in-script&callback="+encodeURIComponent(cb)+"&max-results="+V6CONFIG.maxResults+"&orderby=published";
-    diagnostic("URL testée : "+s.src);
-    document.body.appendChild(s);
+    text=await file.text();
+    const xml=new DOMParser().parseFromString(text,"application/xml");
+    const bad=xml.querySelector("parsererror"); if(bad)throw Error("KML illisible");
+    const placemarks=[...xml.getElementsByTagNameNS("*","Placemark")];
+    const parsed=[];
+    placemarks.forEach((pm,i)=>{
+      const name=pm.getElementsByTagNameNS("*","name")[0]?.textContent?.trim()||"Lieu "+(i+1);
+      const desc=pm.getElementsByTagNameNS("*","description")[0]?.textContent||"";
+      const point=pm.getElementsByTagNameNS("*","Point")[0];
+      const coords=point?.getElementsByTagNameNS("*","coordinates")[0]?.textContent?.trim();
+      if(coords){
+        const [lng,lat]=coords.split(",").map(Number);
+        if(Number.isFinite(lat)&&Number.isFinite(lng))parsed.push({name,lat,lng,description:stripHTML(desc)});
+      }
+      const ls=pm.getElementsByTagNameNS("*","LineString");
+      [...ls].forEach(line=>{
+        const c=line.getElementsByTagNameNS("*","coordinates")[0]?.textContent?.trim();
+        if(c){const first=c.split(/\s+/)[0].split(",").map(Number);if(first.length>=2&&Number.isFinite(first[0])&&Number.isFinite(first[1]))parsed.push({name,lat:first[1],lng:first[0],description:stripHTML(desc),category:"Itinéraire"});}
+      });
+    });
+    if(!parsed.length)throw Error("Aucun repère ponctuel trouvé dans ce KML.");
+    state.markers=parsed;localStorage.setItem("offlineMarkers",JSON.stringify(parsed));drawMarkers();
+    notice(parsed.length+" repères importés depuis My Maps. Ils sont maintenant disponibles hors connexion.");
+  }catch(e){notice("Erreur KML : "+e.message)}
+}
+function stripHTML(s){const d=document.createElement("div");d.innerHTML=s||"";return d.textContent||d.innerText||""}
+
+function setupMap(){
+  state.map=L.map("map",{zoomControl:true,preferCanvas:true}).setView([46.494151,0.605944],11);
+  state.layer=L.layerGroup().addTo(state.map);
+  const saved=localStorage.getItem("offlineMarkers");if(saved&&!state.markers.length)try{state.markers=JSON.parse(saved)}catch(e){}
+  drawMarkers();
+  $("#locateBtn").onclick=locate;
+  $("#mapSearch").oninput=e=>searchMap(e.target.value);
+  $("#offlineBtn").onclick=()=>{state.online=false;notice("Mode hors connexion : les données locales restent disponibles. Le fond détaillé peut être absent si les tuiles n'ont pas été mises en cache.");};
+  $("#kmlInput").onchange=e=>{if(e.target.files[0])importKML(e.target.files[0])};
+  $("#onlineMapBtn").onclick=()=>{state.online=true;notice("Mode en ligne : chargement du fond cartographique.");addOnlineTiles()};
+  addOnlineTiles();
+}
+function addOnlineTiles(){
+  if(!state.map)return;
+  if(state.tiles)state.map.removeLayer(state.tiles);
+  state.tiles=L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'© OpenStreetMap contributors'}).addTo(state.map);
+}
+function drawMarkers(){
+  state.layer.clearLayers();
+  state.markers.forEach((m,i)=>{
+    if(typeof m.lat!=="number"||typeof m.lng!=="number")return;
+    const marker=L.marker([m.lat,m.lng]).addTo(state.layer);
+    marker.bindTooltip(esc(m.name||"Lieu"),{direction:"top"});
+    marker.on("click",()=>openMarker(m));
   });
+  localStorage.setItem("offlineMarkers",JSON.stringify(state.markers));
 }
-async function testBlogger(){
-  clearDiagnostic();
-  const st=$("syncStatus"); if(st)st.textContent="Test de connexion à Blogger…";
-  diagnostic("Blog : "+V6CONFIG.blog);
-  diagnostic("Navigateur : "+navigator.userAgent);
-  try{
-    const data=await jsonp(V6CONFIG.feed,15000);
-    const entries=data?.feed?.entry||[];
-    const count=Array.isArray(entries)?entries.length:(entries?1:0);
-    diagnostic("Réponse Blogger reçue.");
-    diagnostic("Articles renvoyés : "+count);
-    diagnostic("Titre du flux : "+(data?.feed?.title?.$t||"(inconnu)"));
-    if(st)st.textContent="Blogger répond correctement. "+count+" article(s) dans ce lot.";
-  }catch(e){
-    diagnostic("ERREUR : "+(e?.message||String(e)));
-    diagnostic("Conseil : ouvre l’URL du flux dans un nouvel onglet pour vérifier qu’elle est publique.");
-    if(st)st.textContent="Test échoué — regarde le diagnostic ci-dessous.";
-  }
+function openMarker(m){
+  const related=state.articles.filter(a=>[a.title,a.url,...(a.labels||[]),a.place].join(" ").toLowerCase().includes(String(m.name||"").toLowerCase())).slice(0,15);
+  $("#sheetContent").innerHTML=`<h2>${esc(m.name||"Lieu")}</h2><p>${esc(m.description||"")}</p>${m.category?`<span class="tag">${esc(m.category)}</span>`:""}${related.length?`<h3>Articles associés</h3>${related.map(articleMini).join("")}`:"<p>Aucun article associé automatiquement.</p>"}`;
+  $("#sheet").classList.add("open");
 }
-function extract(entry){
-  let html=entry.content?.$t||"";
-  let imgs=imgList(html);
-  let cats=(entry.category||[]).map(c=>c.term).filter(Boolean);
-  let published=entry.published?.$t||"";
-  return{id:"blog-"+(entry.id?.$t||"").split(".").pop(),title:entry.title?.$t||"Sans titre",content:html,description:strip(html).slice(0,240),url:(entry.link||[]).find(l=>l.rel==="alternate")?.href||"",published,year:published?new Date(published).getFullYear():null,labels:cats,collection:cats[0]||"Archives Blogger",place:"",imageUrls:imgs}
-}
-async function syncNow(){
-  clearDiagnostic();
-  const st=$("syncStatus"),mini=$("syncMini");
-  if(st)st.textContent="Synchronisation en cours…";
-  if(mini)mini.textContent=" • chargement";
-  diagnostic("Début de synchronisation V6.1.1");
-  try{
-    let all=[],start=1;
-    for(let page=0;page<V6CONFIG.maxPages;page++){
-      const url=V6CONFIG.feed+(V6CONFIG.feed.includes("?")?"&":"?")+"start-index="+start;
-      const data=await jsonp(url,25000);
-      let entries=data?.feed?.entry||[];
-      if(!Array.isArray(entries))entries=entries?[entries]:[];
-      diagnostic("Lot "+(page+1)+" : "+entries.length+" article(s).");
-      if(!entries.length)break;
-      all.push(...entries);
-      if(entries.length<V6CONFIG.maxResults)break;
-      start+=entries.length;
-    }
-    const fresh=all.filter(Boolean).map(extract);
-    const old=new Map(DB.map(x=>[x.id,x]));
-    fresh.forEach(x=>old.set(x.id,x));
-    DB=[...old.values()];
-    save();render();
-    const ni=DB.reduce((n,x)=>n+(x.imageUrls?.length||0),0);
-    diagnostic("Synchronisation terminée.");
-    diagnostic("Articles importés dans la base : "+DB.length);
-    diagnostic("Images détectées : "+ni);
-    if(st)st.textContent=`Synchronisation terminée : ${fresh.length} articles lus, ${ni} images détectées.`;
-    if(mini)mini.textContent=" • terminé";
-  }catch(e){
-    diagnostic("ERREUR DE SYNCHRONISATION : "+(e?.message||String(e)));
-    diagnostic("Aucune donnée n’a été supprimée de la base locale.");
-    if(st)st.textContent="Erreur — ouvre « Tester Blogger » puis lis le diagnostic.";
-    if(mini)mini.textContent=" • erreur";
-  }
-}
-$("q").addEventListener("input",search);$("gq").addEventListener("input",gene);
-if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
-render();
+function locate(){if(!navigator.geolocation){notice("La géolocalisation n'est pas disponible.");return}navigator.geolocation.getCurrentPosition(p=>{const c=[p.coords.latitude,p.coords.longitude];state.map.setView(c,15);L.circleMarker(c,{radius:9}).addTo(state.layer).bindPopup("Vous êtes ici").openPopup();notice("Position trouvée.");},e=>notice("Impossible d'obtenir votre position : "+e.message),{enableHighAccuracy:true,timeout:10000})}
+function searchMap(q){q=q.toLowerCase().trim();state.markers.forEach((m,i)=>{if(!q)return; if(String(m.name).toLowerCase().includes(q)){state.map.setView([m.lat,m.lng],15);openMarker(m)}})}
+function renderAll(){renderPlaces();renderNames();renderArticles();$("#closeSheet").onclick=()=>$("#sheet").classList.remove("open");$("#sheet").onclick=e=>{if(e.target.id==="sheet")$("#sheet").classList.remove("open")}}
+function articleMini(a){return `<div class="item" onclick="openArticle('${esc(a.id)}')"><div><h3>${esc(a.title)}</h3><p>${esc(a.excerpt||"")}</p></div></div>`}
+function articleCard(a){return `<article class="item"><img class="thumb" src="${esc(a.image||"")}" onerror="this.style.display='none'"><div><h3>${esc(a.title)}</h3><p>${esc(a.excerpt||"")}</p>${(a.labels||[]).slice(0,3).map(x=>`<span class="tag">${esc(x)}</span>`).join(" ")}<div><button onclick="openArticle('${esc(a.id)}')">Lire</button></div></div></article>`}
+function renderPlaces(){let el=$("#places");el.innerHTML=state.places.length?state.places.map(p=>`<article class="item"><div><h3>${esc(p.name)}</h3><p>${p.count||0} article(s)</p><button onclick="focusPlace('${esc(p.name)}')">Voir sur la carte</button></div></article>`).join(""):"<div class='empty'>L'index sera rempli lors de la prochaine synchronisation.</div>"}
+function renderNames(){let el=$("#names");el.innerHTML=state.names.length?state.names.map(n=>`<article class="item"><div><h3>${esc(n.name)}</h3><p>${n.count||0} occurrence(s)</p></div></article>`).join(""):"<div class='empty'>L'index des noms sera rempli lors de la synchronisation.</div>"}
+function renderArticles(){let labels=[...new Set(state.articles.flatMap(a=>a.labels||[]))].sort();$("#labelFilter").innerHTML='<option value="">Toutes les catégories</option>'+labels.map(x=>`<option>${esc(x)}</option>`).join("");const go=()=>{let q=$("#articleSearch").value.toLowerCase(),l=$("#labelFilter").value;let a=state.articles.filter(x=>(!q||[x.title,x.excerpt,x.content,...(x.labels||[])].join(" ").toLowerCase().includes(q))&&(!l||(x.labels||[]).includes(l)));$("#articles").innerHTML=a.map(articleCard).join("")||"<div class='empty'>Aucun article.</div>"};$("#articleSearch").oninput=go;$("#labelFilter").onchange=go;go()}
+function focusPlace(n){const m=state.markers.find(x=>String(x.name).toLowerCase()===n.toLowerCase())||state.markers.find(x=>String(x.name).toLowerCase().includes(n.toLowerCase()));if(m){document.querySelector('[data-page="mapPage"]').click();state.map.setView([m.lat,m.lng],15);openMarker(m)}}
+function openArticle(id){const a=state.articles.find(x=>x.id===id);if(!a)return;$("#sheetContent").innerHTML=`<h2>${esc(a.title)}</h2><p>${esc(a.published||"")} ${a.place?`• ${esc(a.place)}`:""}</p><div class="article-body">${a.content||`<p>${esc(a.excerpt||"")}</p>`}</div><p><a href="${esc(a.url)}" target="_blank">Ouvrir l'article original</a></p>`;$("#sheet").classList.add("open")}
+function notice(t){const n=$("#mapNotice");n.textContent=t;n.style.display="block";setTimeout(()=>n.style.display="none",4500)}
+async function setupPWA(){let b=$("#installBtn");let deferred;window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferred=e;b.hidden=false;b.onclick=async()=>{b.hidden=true;await deferred.prompt();deferred=null}})}
+if("serviceWorker"in navigator)navigator.serviceWorker.register("sw.js",{scope:"./"}).catch(console.warn);
+boot();
