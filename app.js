@@ -1,73 +1,39 @@
 const BLOG="https://pierreplumecoeur.blogspot.com/";
-const DBKEY="valdivienne-v11-db";
-let DB=loadDB();
+const FEED=BLOG+"feeds/posts/default?alt=json&max-results=500";
+const STORE="valdivienne-v12";
+let DB={markers:[],articles:[],places:[],names:[]}, mapState={cx:0,cy:0,zoom:1,drag:false,sx:0,sy:0,ox:0,oy:0};
 const $=id=>document.getElementById(id);
-
-function loadDB(){try{return JSON.parse(localStorage.getItem(DBKEY))||{articles:[],places:[],names:[],markers:[]}}catch(e){return{articles:[],places:[],names:[],markers:[]}}}
-function save(){localStorage.setItem(DBKEY,JSON.stringify(DB));}
-function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-function strip(s){return String(s||"").replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim()}
-function openModal(html){$("modalContent").innerHTML=html;$("modal").classList.remove("hidden")}
-function closeModal(){$("modal").classList.add("hidden")}
-window.closeModal=closeModal;
-
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+const strip=s=>String(s||"").replace(/<[^>]*>/g," ").replace(/\s+/g," ").trim();
+function save(){localStorage.setItem(STORE,JSON.stringify(DB))}
+async function load(){try{const r=await fetch("data.json",{cache:"no-store"});DB=await r.json()}catch(e){const x=localStorage.getItem(STORE);if(x)DB=JSON.parse(x)};DB.articles=DB.articles||[];DB.places=DB.places||[];DB.names=DB.names||[];DB.markers=DB.markers||[];save();$("status").textContent=(navigator.onLine?"🟢 En ligne":"🔴 Hors connexion")+" • "+DB.markers.length+" repères locaux";render();initMap()}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));b.classList.add("active");document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));$(b.dataset.view).classList.add("active");render()});
-
-function render(){
- renderPlaces();renderNames();renderArticles();renderMap();renderSearch();
-}
-function card(title,meta,body,action){
- return `<article class="card"><h3>${esc(title)}</h3>${meta?`<div class="meta">${esc(meta)}</div>`:""}<div>${body}</div>${action||""}</article>`;
-}
-function renderPlaces(){
- const q=($("placeFilter")?.value||"").toLowerCase();
- const a=DB.places.filter(x=>(x.name+" "+(x.description||"")).toLowerCase().includes(q));
- $("placesList").innerHTML=a.length?a.map(x=>card(x.name,"Lieu",esc(x.description||""),`<button onclick='showPlace(${JSON.stringify(x.name)})'>Voir</button>`)).join(""):`<div class="empty">Aucun lieu enregistré.</div>`;
-}
-function renderNames(){
- const q=($("nameFilter")?.value||"").toLowerCase();
- const a=DB.names.filter(x=>(x.name+" "+(x.details||"")).toLowerCase().includes(q));
- $("namesList").innerHTML=a.length?a.map(x=>card(x.name,"Nom",esc(x.details||""),x.articles?.length?`<button onclick='showName(${JSON.stringify(x.name)})'>Articles</button>`:"")).join(""):`<div class="empty">Aucun nom enregistré.</div>`;
-}
-function renderArticles(){
- const q=($("articleFilter")?.value||"").toLowerCase();
- const a=DB.articles.filter(x=>(x.title+" "+strip(x.content)+" "+(x.labels||[]).join(" ")).toLowerCase().includes(q));
- $("articlesList").innerHTML=a.length?a.map((x,i)=>card(x.title,x.published||"",esc(x.excerpt||strip(x.content).slice(0,220)),`<button onclick="showArticle(${i})">Lire l'article</button>`)).join(""):`<div class="empty">Aucun article importé. Utilise la fonction de mise à jour lorsqu'elle sera configurée.</div>`;
-}
-function renderMap(){
- const a=DB.markers;
- $("mapList").innerHTML=a.length?a.map((x,i)=>card(x.name,`${x.lat?.toFixed?.(5)||x.lat}, ${x.lon?.toFixed?.(5)||x.lon}`,esc(x.description||""),`<button onclick="focusMarker(${i})">Afficher</button>`)).join(""):`<div class="empty">Aucun repère cartographique. Importe ta carte Google My Maps au format KML.</div>`;
-}
-function renderSearch(){
- const q=($("globalFilter")?.value||"").toLowerCase().trim();
- if(!q){$("searchResults").innerHTML='<div class="empty">Saisis un terme pour rechercher dans les lieux, noms et articles.</div>';return}
- const out=[];
- DB.places.filter(x=>(x.name+" "+x.description).toLowerCase().includes(q)).forEach(x=>out.push(card("📍 "+x.name,"Lieu",esc(x.description||""))));
- DB.names.filter(x=>(x.name+" "+x.details).toLowerCase().includes(q)).forEach(x=>out.push(card("🧬 "+x.name,"Nom",esc(x.details||""))));
- DB.articles.filter(x=>(x.title+" "+strip(x.content)).toLowerCase().includes(q)).slice(0,30).forEach((x,i)=>out.push(card("📚 "+x.title,x.published||"",esc(x.excerpt||strip(x.content).slice(0,180)),`<button onclick="showArticle(${DB.articles.indexOf(x)})">Lire</button>`)));
- $("searchResults").innerHTML=out.join("")||'<div class="empty">Aucun résultat.</div>';
-}
-function showArticle(i){const x=DB.articles[i];openModal(`<h2>${esc(x.title)}</h2><div class="meta">${esc(x.published||"")}</div><div class="articleBody">${x.content||esc(x.excerpt||"")}</div>${x.url?`<p><a href="${esc(x.url)}" target="_blank">Voir l'article original sur Blogger</a></p>`:""}`)}
-function showPlace(n){const x=DB.places.find(p=>p.name===n)||{};openModal(`<h2>📍 ${esc(n)}</h2><p>${esc(x.description||"")}</p>`)}
-function showName(n){const x=DB.names.find(p=>p.name===n)||{};openModal(`<h2>🧬 ${esc(n)}</h2><p>${esc(x.details||"")}</p>`)}
-function focusMarker(i){const x=DB.markers[i];if(x)openModal(`<h2>📍 ${esc(x.name)}</h2><p>${esc(x.description||"")}</p><p><b>Latitude :</b> ${x.lat}<br><b>Longitude :</b> ${x.lon}</p><button onclick="navigate(${x.lat},${x.lon})">Itinéraire</button>`)}
-
-function navigate(lat,lon){location.href=`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`}
-$("locate").onclick=()=>navigator.geolocation?.getCurrentPosition(p=>openModal(`<h2>📍 Votre position</h2><p>Latitude : ${p.coords.latitude.toFixed(6)}<br>Longitude : ${p.coords.longitude.toFixed(6)}</p>`),e=>openModal(`<h2>Géolocalisation</h2><p>Impossible d'obtenir votre position : ${esc(e.message)}</p>`));
-$("importMap").onclick=()=>$("kmlInput").click();
-$("kmlInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;const text=await f.text();importKML(text);};
-function importKML(text){
- const xml=new DOMParser().parseFromString(text,"text/xml");
- const placemarks=[...xml.querySelectorAll("Placemark")];const markers=[];
- placemarks.forEach(p=>{const name=p.querySelector("name")?.textContent?.trim()||"Lieu sans nom";const desc=p.querySelector("description")?.textContent||"";const coord=p.querySelector("Point coordinates")?.textContent?.trim();if(coord){const [lon,lat]=coord.split(",").map(Number);if(Number.isFinite(lat)&&Number.isFinite(lon))markers.push({name,description:strip(desc),lat,lon})}});
- DB.markers=markers;save();render();alert(`${markers.length} repère(s) importé(s).`);
-}
-$("resetMap").onclick=()=>{if(confirm("Supprimer les repères cartographiques importés ?")){DB.markers=[];save();renderMap()}};
-["placeFilter","nameFilter","articleFilter","globalFilter"].forEach(id=>$(id)?.addEventListener("input",render));
-
-window.addEventListener("load",()=>{render();if(navigator.onLine)$("status").textContent="🟢 En ligne • données locales disponibles";else $("status").textContent="🔴 Hors connexion • mode local";});
-window.addEventListener("online",()=>$("status").textContent="🟢 En ligne • données locales disponibles");
-window.addEventListener("offline",()=>$("status").textContent="🔴 Hors connexion • mode local");
-
-// Installation PWA: service worker actif seulement après premier chargement.
-if("serviceWorker"in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+function card(t,m,b,a=""){return `<article class="card"><h3>${esc(t)}</h3><div class="meta">${esc(m||"")}</div><p>${b}</p>${a}</article>`}
+function renderPlaces(){const q=($("placeFilter").value||"").toLowerCase();let a=DB.markers.filter(x=>x.name.toLowerCase().includes(q));$("placesList").innerHTML=a.length?a.map((x,i)=>card("📍 "+x.name,"Repère cartographique",esc(strip(x.description).slice(0,260)),`<button onclick="openMarker(${i})">Voir sur la carte</button>`)).join(""):'<div class="empty">Aucun lieu.</div>'}
+function renderNames(){const q=($("nameFilter").value||"").toLowerCase();const a=DB.names.filter(x=>(x.name+" "+x.details).toLowerCase().includes(q));$("namesList").innerHTML=a.length?a.map(x=>card("🧬 "+x.name,"Index des noms",esc(x.details||""))).join(""):'<div class="empty">L’index sera rempli lors de la synchronisation du blog.</div>'}
+function renderArticles(){const q=($("articleFilter").value||"").toLowerCase();const a=DB.articles.filter(x=>(x.title+" "+strip(x.content)).toLowerCase().includes(q));$("articlesList").innerHTML=a.length?a.map(x=>card("📚 "+x.title,x.published||"",esc(x.excerpt||strip(x.content).slice(0,240)),`<button onclick="showArticle(${DB.articles.indexOf(x)})">Lire</button>`)).join(""):'<div class="empty">Aucun article synchronisé pour le moment.</div>'}
+function renderSearch(){const q=($("globalFilter").value||"").toLowerCase().trim();if(!q){$("searchResults").innerHTML='<div class="empty">Saisis un terme de recherche.</div>';return}let o=[];DB.markers.filter(x=>(x.name+" "+x.description).toLowerCase().includes(q)).slice(0,30).forEach((x,i)=>o.push(card("📍 "+x.name,"Lieu",esc(strip(x.description).slice(0,180)),`<button onclick="openMarker(${DB.markers.indexOf(x)})">Ouvrir</button>`)));DB.articles.filter(x=>(x.title+" "+strip(x.content)).toLowerCase().includes(q)).slice(0,30).forEach(x=>o.push(card("📚 "+x.title,"Article",esc(x.excerpt||strip(x.content).slice(0,180)),`<button onclick="showArticle(${DB.articles.indexOf(x)})">Lire</button>`)));$("searchResults").innerHTML=o.join("")||'<div class="empty">Aucun résultat.</div>'}
+function renderMapList(){let a=DB.markers.slice(0,80);$("mapList").innerHTML=card("📍 "+DB.markers.length+" repères","Carte importée depuis ton fichier KMZ","Les marqueurs sont intégrés localement. Appuie sur un repère pour ouvrir sa fiche.")+a.map((x,i)=>card(x.name,`${x.lat.toFixed(5)}, ${x.lon.toFixed(5)}`,esc(strip(x.description).slice(0,120)),`<button onclick="openMarker(${i})">Fiche</button>`)).join("")}
+function render(){renderPlaces();renderNames();renderArticles();renderSearch();renderMapList()}
+function showArticle(i){const x=DB.articles[i];$("modalContent").innerHTML=`<h2>${esc(x.title)}</h2><div class="meta">${esc(x.published||"")}</div><div class="articleBody">${x.content||esc(x.excerpt||"")}</div>${x.url?`<p><a href="${esc(x.url)}" target="_blank">Article original</a></p>`:""}`;$("modal").classList.remove("hidden")}
+function openMarker(i){const x=DB.markers[i];if(!x)return;focusMarker(i);$("modalContent").innerHTML=`<h2>📍 ${esc(x.name)}</h2><p>${esc(strip(x.description))}</p><p><b>Latitude :</b> ${x.lat}<br><b>Longitude :</b> ${x.lon}</p><button onclick="route(${x.lat},${x.lon})">🧭 Itinéraire</button>`;$("modal").classList.remove("hidden")}
+function route(lat,lon){location.href=`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`}
+$("close").onclick=()=>$("modal").classList.add("hidden");$("modal").onclick=e=>{if(e.target.id==="modal")$("modal").classList.add("hidden")};
+function bounds(){let a=DB.markers;return {minLon:Math.min(...a.map(x=>x.lon)),maxLon:Math.max(...a.map(x=>x.lon)),minLat:Math.min(...a.map(x=>x.lat)),maxLat:Math.max(...a.map(x=>x.lat))}}
+function project(lon,lat){let b=bounds(),w=$("mapBox").clientWidth,h=$("mapBox").clientHeight,p=0.05;let x=(lon-b.minLon)/(b.maxLon-b.minLon||1),y=1-(lat-b.minLat)/(b.maxLat-b.minLat||1);return {x:(p+x*(1-2*p))*w,y:(p+y*(1-2*p))*h}}
+function drawVector(){const s=$("vectorMap"),w=$("mapBox").clientWidth,h=$("mapBox").clientHeight;s.setAttribute("viewBox",`0 0 ${w} ${h}`);s.innerHTML="";const ns="http://www.w3.org/2000/svg";DB.markers.forEach((m,i)=>{const p=project(m.lon,m.lat);const g=document.createElementNS(ns,"g");g.setAttribute("class","marker");g.setAttribute("transform",`translate(${p.x} ${p.y})`);const c=document.createElementNS(ns,"circle");c.setAttribute("r","8");c.setAttribute("fill",color(m.style));g.appendChild(c);const t=document.createElementNS(ns,"text");t.setAttribute("x","11");t.setAttribute("y","4");t.textContent=m.name.length>28?m.name.slice(0,27)+"…":m.name;g.appendChild(t);g.onclick=()=>openMarker(i);s.appendChild(g)})}
+function color(style){if((style||"").includes("C2185B"))return"#c2185b";if((style||"").includes("F57C00"))return"#f57c00";if((style||"").includes("1A237E"))return"#1a237e";if((style||"").includes("4E342E"))return"#4e342e";if((style||"").includes("558B2F"))return"#558b2f";if((style||"").includes("F9A825"))return"#f9a825";return"#000"}
+function initMap(){drawVector();if(navigator.onLine)loadTiles();window.onresize=drawVector}
+function osmXY(lat,lon,z){let n=2**z,x=(lon+180)/360*n,y=(1-Math.asinh(Math.tan(lat*Math.PI/180))/Math.PI)/2*n;return[x,y]}
+async function loadTiles(){const z=13,[cx,cy]=osmXY(46.50,0.62,z),tx=Math.floor(cx),ty=Math.floor(cy),box=$("mapBox"),w=box.clientWidth,h=box.clientHeight;const layer=$("tiles");layer.innerHTML="";for(let dx=-2;dx<=2;dx++)for(let dy=-2;dy<=2;dy++){let img=document.createElement("img");img.className="tile";img.src=`https://tile.openstreetmap.org/${z}/${tx+dx}/${ty+dy}.png`;img.style.left=(w/2+(dx-(cx-tx))*256-1280)+"px";img.style.top=(h/2+(dy-(cy-ty))*256-1280)+"px";layer.appendChild(img)}$("mapHint").textContent="Fond OpenStreetMap en ligne • les 311 repères restent locaux"}
+$("onlineTiles").onclick=()=>navigator.onLine?loadTiles():alert("Le fond cartographique en ligne n'est pas disponible hors connexion. Les repères locaux restent consultables.");
+$("fit").onclick=()=>{drawVector();$("mapBox").scrollIntoView({behavior:"smooth",block:"center"})};
+$("zin").onclick=()=>{document.querySelectorAll("#vectorMap .marker circle").forEach(c=>c.setAttribute("r",Math.min(20,Number(c.getAttribute("r"))+2)))};
+$("zout").onclick=()=>{document.querySelectorAll("#vectorMap .marker circle").forEach(c=>c.setAttribute("r",Math.max(4,Number(c.getAttribute("r"))-2)))};
+$("locate").onclick=()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{$("gpsDot").hidden=false;$("gpsDot").style.cssText=`position:absolute;z-index:9;width:18px;height:18px;border-radius:50%;background:#1677ff;border:3px solid white;left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 6px #1677ff44`; $("modalContent").innerHTML=`<h2>📍 Ma position</h2><p>Latitude : ${p.coords.latitude.toFixed(6)}<br>Longitude : ${p.coords.longitude.toFixed(6)}</p>`;$("modal").classList.remove("hidden")},e=>alert("Géolocalisation impossible : "+e.message)):alert("La géolocalisation n'est pas disponible.");
+async function updateBlog(){if(!navigator.onLine){alert("Tu es hors connexion. La dernière copie locale reste disponible.");return}$("status").textContent="🔄 Synchronisation du blog…";try{const r=await fetch(FEED,{cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const j=await r.json();const entries=j.feed?.entry||[];DB.articles=entries.map(e=>{let c=e.content?.$t||e.summary?.$t||"";let url=(e.link||[]).find(l=>l.rel==="alternate")?.href||"";return{title:e.title?.$t||"Sans titre",published:e.published?.$t||"",content:c,url,excerpt:strip(c).slice(0,300)}});save();render();$("status").textContent="🟢 Blog synchronisé • "+DB.articles.length+" articles";alert("Synchronisation terminée : "+DB.articles.length+" articles récupérés.")}catch(e){$("status").textContent="⚠️ Synchronisation impossible";alert("Le blog n'a pas pu être récupéré automatiquement. Diagnostic : "+e.message+"\\n\\nLes 311 repères de la carte restent disponibles hors connexion.")}}
+$("update").onclick=updateBlog;
+["placeFilter","nameFilter","articleFilter","globalFilter"].forEach(id=>$(id).addEventListener("input",render));
+window.addEventListener("online",()=>{$("status").textContent="🟢 En ligne • "+DB.markers.length+" repères locaux";loadTiles()});
+window.addEventListener("offline",()=>{$("status").textContent="🔴 Hors connexion • "+DB.markers.length+" repères locaux";$("tiles").innerHTML="";$("mapHint").textContent="Mode hors connexion • repères patrimoniaux disponibles"});
+load();

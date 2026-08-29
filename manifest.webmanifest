@@ -2,6 +2,7 @@
   "name": "Valdivienne — Patrimoine & Mémoire",
   "short_name": "Valdivienne",
   "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#f3eee6",
   "theme_color": "#5b4636",

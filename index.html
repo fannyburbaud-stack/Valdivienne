@@ -2,76 +2,34 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
 <meta name="theme-color" content="#5b4636">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="app.css">
 <title>Valdivienne — Patrimoine & Mémoire</title>
 </head>
 <body>
-<header>
-  <div class="brand">VALDIVIENNE</div>
-  <div class="subtitle">Patrimoine & Mémoire</div>
-  <div class="status" id="status">Hors connexion possible</div>
-</header>
+<header><div class="brand">VALDIVIENNE</div><div class="subtitle">Patrimoine & Mémoire</div><div id="status">Chargement…</div></header>
 <nav>
-  <button class="active" data-view="map">🗺️ Carte</button>
-  <button data-view="places">📍 Lieux</button>
-  <button data-view="names">🧬 Noms</button>
-  <button data-view="articles">📚 Articles</button>
-  <button data-view="search">🔎 Recherche</button>
+<button class="active" data-view="map">🗺️ Carte</button><button data-view="places">📍 Lieux</button><button data-view="names">🧬 Noms</button><button data-view="articles">📚 Articles</button><button data-view="search">🔎 Recherche</button>
 </nav>
 <main>
 <section id="map" class="view active">
-  <div class="toolbar">
-    <button id="locate">📍 Ma position</button>
-    <button id="importMap">📥 Importer KML</button>
-    <button id="resetMap">↺ Réinitialiser</button>
-  </div>
-  <div id="mapBox" class="mapbox">
-    <div class="mapPlaceholder">
-      <div class="big">🗺️</div>
-      <h2>Carte patrimoniale</h2>
-      <p>La carte fonctionne hors connexion avec les lieux enregistrés dans l'application.</p>
-      <p class="small">En ligne, le fond OpenStreetMap peut être affiché. Les données patrimoniales restent locales.</p>
-    </div>
-  </div>
-  <div id="mapList" class="cards"></div>
-</section>
-
-<section id="places" class="view">
-  <h1>📍 Index des lieux</h1>
-  <input id="placeFilter" placeholder="Rechercher un lieu…">
-  <div id="placesList" class="cards"></div>
-</section>
-
-<section id="names" class="view">
-  <h1>🧬 Index des noms</h1>
-  <input id="nameFilter" placeholder="Rechercher un nom…">
-  <div id="namesList" class="cards"></div>
-</section>
-
-<section id="articles" class="view">
-  <h1>📚 Tous les articles</h1>
-  <input id="articleFilter" placeholder="Rechercher un article…">
-  <div id="articlesList" class="cards"></div>
-</section>
-
-<section id="search" class="view">
-  <h1>🔎 Recherche générale</h1>
-  <input id="globalFilter" placeholder="Lieu, nom, article, mot-clé…">
-  <div id="searchResults" class="cards"></div>
-</section>
-</main>
-
-<div id="modal" class="modal hidden">
-  <div class="modalCard">
-    <button class="close" onclick="closeModal()">×</button>
-    <div id="modalContent"></div>
-  </div>
+<div class="toolbar">
+<button id="locate">📍 Ma position</button><button id="update">🔄 Mettre à jour</button><button id="fit">🎯 Tous les lieux</button><button id="onlineTiles">🌐 Fond cartographique</button>
 </div>
-
-<input type="file" id="kmlInput" accept=".kml,.kmz,application/vnd.google-earth.kml+xml" hidden>
+<div id="mapBox" class="mapbox">
+<div id="tiles"></div><svg id="vectorMap" aria-label="Carte hors connexion"></svg><div id="gpsDot" hidden></div>
+<div class="mapHint" id="mapHint">Chargement des 311 repères…</div>
+<div class="zoom"><button id="zin">+</button><button id="zout">−</button></div>
+</div>
+<div id="mapList" class="cards"></div>
+</section>
+<section id="places" class="view"><h1>📍 Index des lieux</h1><input id="placeFilter" placeholder="Rechercher un lieu…"><div id="placesList" class="cards"></div></section>
+<section id="names" class="view"><h1>🧬 Index des noms</h1><p class="note">L'index des noms sera synchronisé depuis ton blog lors de la prochaine mise à jour.</p><input id="nameFilter" placeholder="Rechercher un nom…"><div id="namesList" class="cards"></div></section>
+<section id="articles" class="view"><h1>📚 Articles</h1><input id="articleFilter" placeholder="Rechercher un article…"><div id="articlesList" class="cards"></div></section>
+<section id="search" class="view"><h1>🔎 Recherche générale</h1><input id="globalFilter" placeholder="Lieu, nom, article, mot-clé…"><div id="searchResults" class="cards"></div></section>
+</main>
+<div id="modal" class="modal hidden"><div class="modalCard"><button class="close" id="close">×</button><div id="modalContent"></div></div></div>
 <script src="app.js"></script>
-</body>
-</html>
+</body></html>
