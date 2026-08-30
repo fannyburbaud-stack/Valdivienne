@@ -21,18 +21,59 @@ function focusMarker(i){const x=DB.markers[i];if(!x)return;drawVector();}
 function openMarker(i){const x=DB.markers[i];if(!x)return;$("modalContent").innerHTML=`<h2>📍 ${esc(x.name)}</h2><p>${esc(strip(x.description))}</p><p><b>Latitude :</b> ${x.lat}<br><b>Longitude :</b> ${x.lon}</p><button onclick="route(${x.lat},${x.lon})">🧭 Itinéraire</button>`;$("modal").classList.remove("hidden")}
 function route(lat,lon){location.href=`https://www.google.com/maps/dir/?api=1&destination=${lat},${lon}`}
 $("close").onclick=()=>$("modal").classList.add("hidden");$("modal").onclick=e=>{if(e.target.id==="modal")$("modal").classList.add("hidden")};
-function bounds(){let a=DB.markers;return {minLon:Math.min(...a.map(x=>x.lon)),maxLon:Math.max(...a.map(x=>x.lon)),minLat:Math.min(...a.map(x=>x.lat)),maxLat:Math.max(...a.map(x=>x.lat))}}
-function project(lon,lat){let b=bounds(),w=$("mapBox").clientWidth,h=$("mapBox").clientHeight,p=0.05;let x=(lon-b.minLon)/(b.maxLon-b.minLon||1),y=1-(lat-b.minLat)/(b.maxLat-b.minLat||1);return {x:(p+x*(1-2*p))*w,y:(p+y*(1-2*p))*h}}
-function drawVector(){const s=$("vectorMap"),w=$("mapBox").clientWidth,h=$("mapBox").clientHeight;s.setAttribute("viewBox",`0 0 ${w} ${h}`);s.innerHTML="";const ns="http://www.w3.org/2000/svg";DB.markers.forEach((m,i)=>{const p=project(m.lon,m.lat);const g=document.createElementNS(ns,"g");g.setAttribute("class","marker");g.setAttribute("transform",`translate(${p.x} ${p.y})`);const c=document.createElementNS(ns,"circle");c.setAttribute("r","8");c.setAttribute("fill",color(m.style));g.appendChild(c);const t=document.createElementNS(ns,"text");t.setAttribute("x","11");t.setAttribute("y","4");t.textContent=m.name.length>28?m.name.slice(0,27)+"…":m.name;g.appendChild(t);g.onclick=()=>openMarker(i);s.appendChild(g)})}
-function color(style){if((style||"").includes("C2185B"))return"#c2185b";if((style||"").includes("F57C00"))return"#f57c00";if((style||"").includes("1A237E"))return"#1a237e";if((style||"").includes("4E342E"))return"#4e342e";if((style||"").includes("558B2F"))return"#558b2f";if((style||"").includes("F9A825"))return"#f9a825";return"#000"}
-function initMap(){drawVector();if(navigator.onLine)loadTiles();window.onresize=drawVector}
-function osmXY(lat,lon,z){let n=2**z,x=(lon+180)/360*n,y=(1-Math.asinh(Math.tan(lat*Math.PI/180))/Math.PI)/2*n;return[x,y]}
-async function loadTiles(){const z=13,[cx,cy]=osmXY(46.50,0.62,z),tx=Math.floor(cx),ty=Math.floor(cy),box=$("mapBox"),w=box.clientWidth,h=box.clientHeight;const layer=$("tiles");layer.innerHTML="";for(let dx=-2;dx<=2;dx++)for(let dy=-2;dy<=2;dy++){let img=document.createElement("img");img.className="tile";img.src=`https://tile.openstreetmap.org/${z}/${tx+dx}/${ty+dy}.png`;img.style.left=(w/2+(dx-(cx-tx))*256-1280)+"px";img.style.top=(h/2+(dy-(cy-ty))*256-1280)+"px";layer.appendChild(img)}$("mapHint").textContent="Fond OpenStreetMap en ligne • les 311 repères restent locaux"}
-$("onlineTiles").onclick=()=>navigator.onLine?loadTiles():alert("Le fond cartographique en ligne n'est pas disponible hors connexion. Les repères locaux restent consultables.");
-$("fit").onclick=()=>{drawVector();$("mapBox").scrollIntoView({behavior:"smooth",block:"center"})};
-$("zin").onclick=()=>{document.querySelectorAll("#vectorMap .marker circle").forEach(c=>c.setAttribute("r",Math.min(20,Number(c.getAttribute("r"))+2)))};
-$("zout").onclick=()=>{document.querySelectorAll("#vectorMap .marker circle").forEach(c=>c.setAttribute("r",Math.max(4,Number(c.getAttribute("r"))-2)))};
-$("locate").onclick=()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{$("gpsDot").hidden=false;$("gpsDot").style.cssText=`position:absolute;z-index:9;width:18px;height:18px;border-radius:50%;background:#1677ff;border:3px solid white;left:50%;top:50%;transform:translate(-50%,-50%);box-shadow:0 0 0 6px #1677ff44`; $("modalContent").innerHTML=`<h2>📍 Ma position</h2><p>Latitude : ${p.coords.latitude.toFixed(6)}<br>Longitude : ${p.coords.longitude.toFixed(6)}</p>`;$("modal").classList.remove("hidden")},e=>alert("Géolocalisation impossible : "+e.message)):alert("La géolocalisation n'est pas disponible.");
+function bounds(){
+  const local=DB.markers.filter(x=>Math.abs(x.lat-46.50)<0.20 && Math.abs(x.lon-0.62)<0.20);
+  const a=local.length?local:DB.markers;
+  return {minLon:Math.min(...a.map(x=>x.lon)),maxLon:Math.max(...a.map(x=>x.lon)),minLat:Math.min(...a.map(x=>x.lat)),maxLat:Math.max(...a.map(x=>x.lat))};
+}
+let mapState={cx:0.62,cy:46.50,zoom:13,drag:false,lastX:0,lastY:0, moved:false};
+function worldXY(lat,lon,z){const n=2**z, x=(lon+180)/360*n, y=(1-Math.asinh(Math.tan(lat*Math.PI/180))/Math.PI)/2*n;return{x:x*256,y:y*256}}
+function setCenter(lat,lon,z=mapState.zoom){mapState.cy=lat;mapState.cx=lon;mapState.zoom=Math.max(10,Math.min(17,z));drawVector();if(navigator.onLine)loadTiles()}
+function project(lon,lat){const b=bounds(),w=$('mapBox').clientWidth,h=$('mapBox').clientHeight,p=.04;let x=(lon-b.minLon)/(b.maxLon-b.minLon||1),y=1-(lat-b.minLat)/(b.maxLat-b.minLat||1);return{x:(p+x*(1-2*p))*w,y:(p+y*(1-2*p))*h}}
+function drawVector(){
+  const s=$('vectorMap'),w=$('mapBox').clientWidth,h=$('mapBox').clientHeight;
+  s.setAttribute('viewBox',`0 0 ${w} ${h}`);s.innerHTML='';
+  const ns='http://www.w3.org/2000/svg';
+  const bg=document.createElementNS(ns,'rect');bg.setAttribute('width',w);bg.setAttribute('height',h);bg.setAttribute('fill','#e9e1d5');s.appendChild(bg);
+  const grid=document.createElementNS(ns,'g');grid.setAttribute('opacity','.35');
+  for(let x=0;x<w;x+=80){let l=document.createElementNS(ns,'line');l.setAttribute('x1',x);l.setAttribute('y1',0);l.setAttribute('x2',x);l.setAttribute('y2',h);l.setAttribute('stroke','#c9bba8');grid.appendChild(l)}
+  for(let y=0;y<h;y+=80){let l=document.createElementNS(ns,'line');l.setAttribute('x1',0);l.setAttribute('y1',y);l.setAttribute('x2',w);l.setAttribute('y2',y);l.setAttribute('stroke','#c9bba8');grid.appendChild(l)}
+  s.appendChild(grid);
+  const b=bounds();
+  DB.markers.forEach((m,i)=>{
+    if(m.lon<b.minLon-0.03||m.lon>b.maxLon+0.03||m.lat<b.minLat-0.03||m.lat>b.maxLat+0.03)return;
+    const p=project(m.lon,m.lat),g=document.createElementNS(ns,'g');g.setAttribute('class','marker');g.setAttribute('transform',`translate(${p.x} ${p.y})`);g.setAttribute('role','button');g.setAttribute('tabindex','0');
+    const c=document.createElementNS(ns,'circle');c.setAttribute('r','10');c.setAttribute('fill',color(m.style));g.appendChild(c);
+    const t=document.createElementNS(ns,'text');t.setAttribute('x','13');t.setAttribute('y','4');t.textContent=m.name.length>25?m.name.slice(0,24)+'…':m.name;g.appendChild(t);
+    g.addEventListener('click',e=>{e.stopPropagation();openMarker(i)});g.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' ')openMarker(i)});s.appendChild(g)
+  });
+}
+function initMap(){
+  drawVector(); if(navigator.onLine)loadTiles();
+  window.addEventListener('resize',()=>{drawVector();if(navigator.onLine)loadTiles()});
+  const box=$('mapBox');
+  let start=null;
+  box.addEventListener('pointerdown',e=>{start={x:e.clientX,y:e.clientY};mapState.lastX=e.clientX;mapState.lastY=e.clientY;mapState.moved=false;box.setPointerCapture(e.pointerId)});
+  box.addEventListener('pointermove',e=>{if(!start)return;const dx=e.clientX-mapState.lastX,dy=e.clientY-mapState.lastY;if(Math.abs(e.clientX-start.x)+Math.abs(e.clientY-start.y)>6)mapState.moved=true;mapState.lastX=e.clientX;mapState.lastY=e.clientY;if(mapState.moved){box.scrollLeft-=dx;box.scrollTop-=dy}});
+  box.addEventListener('pointerup',()=>{start=null});
+  box.addEventListener('wheel',e=>{e.preventDefault();mapState.zoom=Math.max(10,Math.min(17,mapState.zoom+(e.deltaY<0?1:-1)));loadTiles();drawVector()},{passive:false});
+}
+function osmXY(lat,lon,z){const n=2**z,x=(lon+180)/360*n,y=(1-Math.asinh(Math.tan(lat*Math.PI/180))/Math.PI)/2*n;return[x,y]}
+async function loadTiles(){
+  if(!navigator.onLine){$('mapHint').textContent='📴 Hors connexion • repères patrimoniaux disponibles';return}
+  const z=mapState.zoom,[cx,cy]=osmXY(mapState.cy,mapState.cx,z),tx=Math.floor(cx),ty=Math.floor(cy),box=$('mapBox'),w=box.clientWidth,h=box.clientHeight,layer=$('tiles');
+  layer.innerHTML='';
+  for(let dx=-2;dx<=2;dx++)for(let dy=-2;dy<=2;dy++){
+    const img=document.createElement('img');img.className='tile';img.loading='eager';img.alt='';img.src=`https://tile.openstreetmap.org/${z}/${tx+dx}/${ty+dy}.png`;
+    img.style.left=`${w/2 + ((tx+dx)-cx)*256}px`;img.style.top=`${h/2 + ((ty+dy)-cy)*256}px`;layer.appendChild(img)
+  }
+  $('mapHint').textContent='🌐 OpenStreetMap en ligne • 311 repères locaux';
+}
+$('onlineTiles').onclick=()=>{if(navigator.onLine)loadTiles();else alert('Le fond cartographique n’est pas téléchargé pour cette zone. Les 311 repères restent disponibles hors connexion.')};
+$('fit').onclick=()=>{setCenter(46.50,0.62,13);$('mapBox').scrollIntoView({behavior:'smooth',block:'center'})};
+$('zin').onclick=()=>{mapState.zoom=Math.min(17,mapState.zoom+1);loadTiles();drawVector()};
+$('zout').onclick=()=>{mapState.zoom=Math.max(10,mapState.zoom-1);loadTiles();drawVector()};
+$('locate').onclick=()=>navigator.geolocation?navigator.geolocation.getCurrentPosition(p=>{mapState.cy=p.coords.latitude;mapState.cx=p.coords.longitude;drawVector();loadTiles();$('modalContent').innerHTML=`<h2>📍 Ma position</h2><p>Latitude : ${p.coords.latitude.toFixed(6)}<br>Longitude : ${p.coords.longitude.toFixed(6)}</p><p>La carte a été recentrée sur votre position.</p>`;$('modal').classList.remove('hidden')},e=>alert('Géolocalisation impossible : '+e.message)):alert('La géolocalisation n’est pas disponible.');
 async function updateBlog(){if(!navigator.onLine){alert("Tu es hors connexion. La dernière copie locale reste disponible.");return}$("status").textContent="🔄 Synchronisation du blog…";try{const r=await fetch(FEED,{cache:"no-store"});if(!r.ok)throw Error("HTTP "+r.status);const j=await r.json();const entries=j.feed?.entry||[];DB.articles=entries.map(e=>{let c=e.content?.$t||e.summary?.$t||"";let url=(e.link||[]).find(l=>l.rel==="alternate")?.href||"";return{title:e.title?.$t||"Sans titre",published:e.published?.$t||"",content:c,url,excerpt:strip(c).slice(0,300)}});save();render();$("status").textContent="🟢 Blog synchronisé • "+DB.articles.length+" articles";alert("Synchronisation terminée : "+DB.articles.length+" articles récupérés.")}catch(e){$("status").textContent="⚠️ Synchronisation impossible";alert("Le blog n'a pas pu être récupéré automatiquement. Diagnostic : "+e.message+"\\n\\nLes 311 repères de la carte restent disponibles hors connexion.")}}
 $("update").onclick=updateBlog;
 ["placeFilter","nameFilter","articleFilter","globalFilter"].forEach(id=>$(id).addEventListener("input",render));
